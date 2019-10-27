@@ -40,11 +40,13 @@ class AnalyzeFlow(picamera.array.PiMotionAnalysis):
             # topic: /pidrone/picamera/twist
             # note: ensure that you pass in the argument queue_size=1 to the
             #       publisher to avoid lag
+        self.twist_pub = rospy.Publisher('/pidrone/picamera/twist', TwistStamped, queue_size = 1)
         # Subscriber:
         # TODO: subscribe to /pidrone/state to extract altitude (z position) for
         #       scaling
             # message type: State
             # callback method: state_callback
+        self.state_sub = rospy.Publisher('/pidrone/state', State, self.state_callback, queue_size=1)
 
     def analyse(self, a):
         ''' Analyze the frame, calculate the motion vectors, and publish the
@@ -59,8 +61,8 @@ class AnalyzeFlow(picamera.array.PiMotionAnalysis):
         y = a['y']
 
         # TODO: calculate the optical flow velocities by summing and scaling the flow vectors
-        opflow_x = ??? 
-        opflow_y = ??? 
+        opflow_x = np.sum(x) 
+        opflow_y = np.sum(y)
         
         # Turn summed optical flow vectors into real-world velocities
         x_motion = opflow_x * self.flow_coeff * self.altitude
@@ -68,13 +70,18 @@ class AnalyzeFlow(picamera.array.PiMotionAnalysis):
 
         # TODO: Create a TwistStamped message, fill in the values you've calculated,
         #       and publish this using the publisher you've created in setup
-
+        twist_stamped_msg = TwistStamped()
+        twist_stamped_msg.twist.linear.x = x_motion
+        twist_stamped_msg.twist.linear.y = y_motion
+        twist_stamped_msg.header.stamp = rospy.Time.now()
+        self.twist_pub.publish(twist_stamped_msg)
+        
 # TODO: Implement this method
     def state_callback(self, msg):
         """
         Store z position (altitude) reading from State
         """
-        pass
+        self.altitude = msg.pose_with_covariance.pose.position.z
 
 
 def main():
